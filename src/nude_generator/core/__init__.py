@@ -1,16 +1,8 @@
 """
-Core generation modules for the Nude Generator.
-
-This module contains the main generation logic and pipeline management.
+Core generation modules for GAN-based nude generator.
 """
 
-from .generator import NudeGenerator
-from .advanced_generator import AdvancedNudeGenerator
-from .pipeline import PipelineManager
+from .gan_generator import GANNudeGenerator, GeneratorUNet, Discriminator
 
-__all__ = [
-    "NudeGenerator", 
-    "AdvancedNudeGenerator",
-    "PipelineManager"
-]
+__all__ = ['GANNudeGenerator', 'GeneratorUNet', 'Discriminator']
 
