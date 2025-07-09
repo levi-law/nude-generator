@@ -1,0 +1,43 @@
+# Default configuration for Nude Generator
+
+# Model settings
+model:
+  id: "stabilityai/stable-diffusion-2-inpainting"
+  device: "auto"  # auto, cuda, cpu
+  torch_dtype: "float16"  # float16, float32
+  cache_dir: null
+
+# Generation parameters
+generation:
+  prompt: "nude body, realistic skin, natural lighting, high quality, detailed anatomy"
+  negative_prompt: "clothing, fabric, clothes, shirt, pants, dress, underwear, bra, panties, low quality, blurry, distorted, deformed, ugly, bad anatomy, extra limbs, missing limbs, floating limbs, disconnected limbs, mutation, mutated, ugly, disgusting, blurry, amputation, watermark, text, signature"
+  num_inference_steps: 50
+  guidance_scale: 7.5
+  strength: 1.0
+  target_size: [512, 512]
+
+# Processing settings
+processing:
+  preserve_face: true
+  preserve_hands: true
+  preserve_background: true
+  auto_clothing_detection: false
+
+# Device and memory settings
+device:
+  enable_memory_efficient_attention: true
+  enable_cpu_offload: true
+  enable_attention_slicing: true
+
+# Output settings
+output:
+  format: "PNG"
+  quality: 95
+  save_mask: false
+  save_metadata: false
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+

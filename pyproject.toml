@@ -1,0 +1,120 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nude-generator"
+version = "1.0.0"
+authors = [
+    {name = "AI Research Team", email = "research@example.com"},
+]
+description = "AI-powered nude image generator using Stable Diffusion inpainting"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+keywords = ["ai", "machine learning", "image generation", "stable diffusion", "inpainting", "nude"]
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "diffusers>=0.21.0",
+    "transformers>=4.25.0",
+    "accelerate>=0.20.0",
+    "safetensors>=0.3.0",
+    "Pillow>=9.0.0",
+    "opencv-python>=4.7.0",
+    "numpy>=1.21.0",
+    "tqdm>=4.64.0",
+    "requests>=2.28.0",
+    "huggingface-hub>=0.16.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=0.991",
+    "pre-commit>=2.20.0",
+]
+advanced = [
+    "mediapipe>=0.10.0",
+    "controlnet-aux>=0.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/username/nude-generator"
+"Bug Reports" = "https://github.com/username/nude-generator/issues"
+Source = "https://github.com/username/nude-generator"
+Documentation = "https://github.com/username/nude-generator/docs"
+
+[project.scripts]
+nude-generator = "nude_generator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nude_generator = ["configs/*.yaml", "assets/*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src/nude_generator"]
+omit = ["*/tests/*", "*/test_*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+]
+

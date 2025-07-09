@@ -1,0 +1,43 @@
+# Fast configuration for Nude Generator
+
+# Model settings
+model:
+  id: "runwayml/stable-diffusion-inpainting"  # Faster model
+  device: "auto"
+  torch_dtype: "float16"
+  cache_dir: null
+
+# Generation parameters (fast)
+generation:
+  prompt: "nude body, realistic skin"
+  negative_prompt: "clothing, clothes, low quality, blurry"
+  num_inference_steps: 25
+  guidance_scale: 6.0
+  strength: 0.9
+  target_size: [512, 512]
+
+# Processing settings
+processing:
+  preserve_face: false
+  preserve_hands: false
+  preserve_background: true
+  auto_clothing_detection: false
+
+# Device and memory settings
+device:
+  enable_memory_efficient_attention: true
+  enable_cpu_offload: false  # Disabled for speed
+  enable_attention_slicing: false  # Disabled for speed
+
+# Output settings
+output:
+  format: "JPEG"
+  quality: 85
+  save_mask: false
+  save_metadata: false
+
+# Logging
+logging:
+  level: "WARNING"  # Less verbose for speed
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+
