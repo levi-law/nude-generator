@@ -1,254 +1,329 @@
 #!/usr/bin/env python3
 """
-Command-line interface for GAN-based nude generator.
+Command-line interface for the Nude Generator using pre-trained GANs.
+
+This CLI provides easy access to pre-trained GAN models for nude image generation
+without requiring custom training or complex setup.
 """
 
 import argparse
 import sys
 import os
 from pathlib import Path
-from typing import Optional
+from PIL import Image
+import logging
 
-# Add src to path for imports
+# Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from nude_generator.core.gan_generator import GANNudeGenerator
-from nude_generator.training.train_gan import GANTrainer, create_synthetic_dataset
+from core.pretrained_gan import PretrainedNudeGAN, load_pretrained_nude_gan
 
-
-def generate_command(args):
-    """Handle the generate command."""
-    print(f"🎨 Generating nude version using GAN...")
-    print(f"📁 Input: {args.input}")
-    print(f"📁 Output: {args.output}")
-    
-    # Check if input exists
-    if not os.path.exists(args.input):
-        print(f"❌ Input file not found: {args.input}")
-        return 1
-    
-    # Check if model exists
-    if args.model and not os.path.exists(args.model):
-        print(f"❌ Model file not found: {args.model}")
-        print("💡 Use 'nude-generator train' to train a model first")
-        return 1
-    
-    try:
-        # Initialize generator
-        generator = GANNudeGenerator(
-            device=args.device,
-            model_path=args.model,
-            img_height=args.size,
-            img_width=args.size,
-        )
-        
-        # Generate nude image
-        result = generator.generate_nude(args.input, args.output)
-        
-        print(f"✅ Generated nude image saved to: {args.output}")
-        
-        # Also save mask if requested
-        if args.save_mask:
-            mask_path = args.output.replace('.png', '_mask.png').replace('.jpg', '_mask.png')
-            mask = generator.create_clothing_mask(result)
-            mask.save(mask_path)
-            print(f"✅ Clothing mask saved to: {mask_path}")
-        
-        return 0
-        
-    except Exception as e:
-        print(f"❌ Generation failed: {e}")
-        if args.model is None:
-            print("💡 No model specified. Use --model to specify a trained model path")
-            print("💡 Or use 'nude-generator train' to train a model first")
-        return 1
-
-
-def train_command(args):
-    """Handle the train command."""
-    print(f"🚀 Training GAN nude generator...")
-    print(f"📁 Data directory: {args.data_dir}")
-    print(f"🔢 Epochs: {args.epochs}")
-    print(f"📦 Batch size: {args.batch_size}")
-    
-    # Create synthetic dataset if requested
-    if args.create_synthetic:
-        print("🎭 Creating synthetic dataset...")
-        create_synthetic_dataset(args.data_dir, num_samples=args.synthetic_samples)
-    
-    # Check if data directory exists
-    if not os.path.exists(args.data_dir):
-        print(f"❌ Data directory not found: {args.data_dir}")
-        print("💡 Use --create-synthetic to create a synthetic dataset for testing")
-        return 1
-    
-    try:
-        # Initialize trainer
-        trainer = GANTrainer(
-            data_dir=args.data_dir,
-            batch_size=args.batch_size,
-            img_height=args.size,
-            img_width=args.size,
-            lambda_pixel=args.lambda_pixel,
-        )
-        
-        # Start training
-        trainer.train(
-            num_epochs=args.epochs,
-            save_interval=args.save_interval,
-            output_dir=args.output_dir,
-        )
-        
-        print("🎉 Training completed successfully!")
-        return 0
-        
-    except Exception as e:
-        print(f"❌ Training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-
-
-def batch_command(args):
-    """Handle the batch command."""
-    print(f"📦 Batch processing images...")
-    print(f"📁 Input directory: {args.input_dir}")
-    print(f"📁 Output directory: {args.output_dir}")
-    
-    # Check directories
-    if not os.path.exists(args.input_dir):
-        print(f"❌ Input directory not found: {args.input_dir}")
-        return 1
-    
-    # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
-    
-    # Get list of image files
-    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
-    input_files = [
-        f for f in Path(args.input_dir).iterdir()
-        if f.suffix.lower() in image_extensions
-    ]
-    
-    if not input_files:
-        print(f"❌ No image files found in {args.input_dir}")
-        return 1
-    
-    print(f"📊 Found {len(input_files)} images to process")
-    
-    try:
-        # Initialize generator
-        generator = GANNudeGenerator(
-            device=args.device,
-            model_path=args.model,
-            img_height=args.size,
-            img_width=args.size,
-        )
-        
-        # Process each image
-        for i, input_file in enumerate(input_files, 1):
-            output_file = Path(args.output_dir) / f"nude_{input_file.name}"
-            
-            print(f"🎨 Processing {i}/{len(input_files)}: {input_file.name}")
-            
-            try:
-                generator.generate_nude(str(input_file), str(output_file))
-                print(f"✅ Saved: {output_file}")
-            except Exception as e:
-                print(f"❌ Failed to process {input_file.name}: {e}")
-        
-        print("🎉 Batch processing completed!")
-        return 0
-        
-    except Exception as e:
-        print(f"❌ Batch processing failed: {e}")
-        return 1
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="GAN-based Nude Image Generator",
+        description="Nude Generator - AI-powered nude image generation using pre-trained GANs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Generate nude version of an image
-  nude-generator generate input.jpg -o output.png --model trained_model.pth
+  python -m nude_generator.cli generate input.jpg -o output.png
   
-  # Train a new model
-  nude-generator train --data-dir training_data --epochs 100
+  # Generate multiple random nude images
+  python -m nude_generator.cli random -n 5 -o output_dir/
   
-  # Create synthetic dataset and train
-  nude-generator train --create-synthetic --epochs 50
+  # Use specific model type
+  python -m nude_generator.cli generate input.jpg -o output.png --model stylegan2_ffhq
   
   # Batch process multiple images
-  nude-generator batch input_folder/ -o output_folder/ --model trained_model.pth
+  python -m nude_generator.cli batch input_dir/ -o output_dir/
+  
+  # Get model information
+  python -m nude_generator.cli info --model dcgan_nude
         """
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
     # Generate command
-    generate_parser = subparsers.add_parser('generate', help='Generate nude version of an image')
+    generate_parser = subparsers.add_parser('generate', help='Generate nude version of input image')
     generate_parser.add_argument('input', help='Input image path')
     generate_parser.add_argument('-o', '--output', required=True, help='Output image path')
-    generate_parser.add_argument('--model', help='Path to trained model file')
-    generate_parser.add_argument('--device', default='auto', choices=['auto', 'cpu', 'cuda'], 
-                                help='Device to use for generation')
-    generate_parser.add_argument('--size', type=int, default=256, 
-                                help='Image size (height and width)')
-    generate_parser.add_argument('--save-mask', action='store_true', 
-                                help='Save clothing mask alongside result')
+    generate_parser.add_argument('--model', default='dcgan_nude', 
+                               choices=['dcgan_nude', 'stylegan2_ffhq', 'biggan_imagenet'],
+                               help='Model type to use (default: dcgan_nude)')
+    generate_parser.add_argument('--device', default='auto', choices=['auto', 'cpu', 'cuda'],
+                               help='Device to use (default: auto)')
+    generate_parser.add_argument('--seed', type=int, help='Random seed for reproducibility')
     
-    # Train command
-    train_parser = subparsers.add_parser('train', help='Train the GAN model')
-    train_parser.add_argument('--data-dir', default='training_data', 
-                             help='Directory containing training data')
-    train_parser.add_argument('--epochs', type=int, default=100, 
-                             help='Number of training epochs')
-    train_parser.add_argument('--batch-size', type=int, default=4, 
-                             help='Batch size for training')
-    train_parser.add_argument('--size', type=int, default=256, 
-                             help='Image size (height and width)')
-    train_parser.add_argument('--lambda-pixel', type=float, default=100.0, 
-                             help='Weight for pixel-wise loss')
-    train_parser.add_argument('--output-dir', default='saved_models', 
-                             help='Output directory for models and samples')
-    train_parser.add_argument('--save-interval', type=int, default=10, 
-                             help='Save model every N epochs')
-    train_parser.add_argument('--create-synthetic', action='store_true', 
-                             help='Create synthetic dataset for testing')
-    train_parser.add_argument('--synthetic-samples', type=int, default=100, 
-                             help='Number of synthetic samples to create')
+    # Random generation command
+    random_parser = subparsers.add_parser('random', help='Generate random nude images')
+    random_parser.add_argument('-n', '--num-images', type=int, default=1, help='Number of images to generate')
+    random_parser.add_argument('-o', '--output', required=True, help='Output directory or file path')
+    random_parser.add_argument('--model', default='dcgan_nude',
+                             choices=['dcgan_nude', 'stylegan2_ffhq', 'biggan_imagenet'],
+                             help='Model type to use (default: dcgan_nude)')
+    random_parser.add_argument('--device', default='auto', choices=['auto', 'cpu', 'cuda'],
+                             help='Device to use (default: auto)')
+    random_parser.add_argument('--seed', type=int, help='Random seed for reproducibility')
     
-    # Batch command
+    # Batch processing command
     batch_parser = subparsers.add_parser('batch', help='Batch process multiple images')
     batch_parser.add_argument('input_dir', help='Input directory containing images')
     batch_parser.add_argument('-o', '--output-dir', required=True, help='Output directory')
-    batch_parser.add_argument('--model', help='Path to trained model file')
-    batch_parser.add_argument('--device', default='auto', choices=['auto', 'cpu', 'cuda'], 
-                             help='Device to use for generation')
-    batch_parser.add_argument('--size', type=int, default=256, 
-                             help='Image size (height and width)')
+    batch_parser.add_argument('--model', default='dcgan_nude',
+                            choices=['dcgan_nude', 'stylegan2_ffhq', 'biggan_imagenet'],
+                            help='Model type to use (default: dcgan_nude)')
+    batch_parser.add_argument('--device', default='auto', choices=['auto', 'cpu', 'cuda'],
+                            help='Device to use (default: auto)')
+    batch_parser.add_argument('--extensions', nargs='+', default=['.jpg', '.jpeg', '.png', '.bmp'],
+                            help='Image file extensions to process')
+    
+    # Model info command
+    info_parser = subparsers.add_parser('info', help='Get information about available models')
+    info_parser.add_argument('--model', default='dcgan_nude',
+                           choices=['dcgan_nude', 'stylegan2_ffhq', 'biggan_imagenet'],
+                           help='Model to get info about (default: dcgan_nude)')
+    info_parser.add_argument('--device', default='auto', choices=['auto', 'cpu', 'cuda'],
+                           help='Device to use (default: auto)')
+    
+    # List models command
+    list_parser = subparsers.add_parser('list', help='List available pre-trained models')
     
     args = parser.parse_args()
     
-    if args.command is None:
+    if not args.command:
         parser.print_help()
-        return 1
+        return
     
-    # Execute command
-    if args.command == 'generate':
-        return generate_command(args)
-    elif args.command == 'train':
-        return train_command(args)
-    elif args.command == 'batch':
-        return batch_command(args)
+    try:
+        if args.command == 'generate':
+            generate_nude_image(args)
+        elif args.command == 'random':
+            generate_random_images(args)
+        elif args.command == 'batch':
+            batch_process_images(args)
+        elif args.command == 'info':
+            show_model_info(args)
+        elif args.command == 'list':
+            list_available_models()
+    
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        sys.exit(1)
+
+
+def generate_nude_image(args):
+    """Generate nude version of input image."""
+    logger.info(f"Generating nude version of {args.input}")
+    
+    # Validate input
+    if not os.path.exists(args.input):
+        raise FileNotFoundError(f"Input file not found: {args.input}")
+    
+    # Create output directory if needed
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Load model
+    logger.info(f"Loading {args.model} model...")
+    gan = load_pretrained_nude_gan(
+        model_type=args.model,
+        device=args.device
+    )
+    
+    # Generate nude image
+    logger.info("Generating nude image...")
+    nude_image = gan.generate_nude(
+        input_image=args.input,
+        seed=args.seed
+    )
+    
+    # Save result
+    nude_image.save(args.output)
+    logger.info(f"Nude image saved to {args.output}")
+    
+    # Show model info
+    info = gan.get_model_info()
+    logger.info(f"Used model: {info['model_type']} on {info['device']}")
+
+
+def generate_random_images(args):
+    """Generate random nude images."""
+    logger.info(f"Generating {args.num_images} random nude images")
+    
+    # Setup output
+    output_path = Path(args.output)
+    if args.num_images == 1 and not output_path.suffix:
+        # Single image, but no extension provided
+        output_path = output_path.with_suffix('.png')
+    elif args.num_images > 1:
+        # Multiple images, create directory
+        output_path.mkdir(parents=True, exist_ok=True)
     else:
-        print(f"❌ Unknown command: {args.command}")
-        return 1
+        # Single image with extension, create parent directory
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Load model
+    logger.info(f"Loading {args.model} model...")
+    gan = load_pretrained_nude_gan(
+        model_type=args.model,
+        device=args.device
+    )
+    
+    # Generate images
+    logger.info("Generating images...")
+    images = gan.generate_nude(
+        num_images=args.num_images,
+        seed=args.seed
+    )
+    
+    # Save results
+    if args.num_images == 1:
+        images.save(output_path)
+        logger.info(f"Image saved to {output_path}")
+    else:
+        for i, image in enumerate(images):
+            image_path = output_path / f"random_nude_{i+1:03d}.png"
+            image.save(image_path)
+            logger.info(f"Image {i+1} saved to {image_path}")
+    
+    logger.info(f"Generated {args.num_images} images successfully")
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+def batch_process_images(args):
+    """Batch process multiple images."""
+    input_dir = Path(args.input_dir)
+    output_dir = Path(args.output_dir)
+    
+    if not input_dir.exists():
+        raise FileNotFoundError(f"Input directory not found: {input_dir}")
+    
+    # Find all image files
+    image_files = []
+    for ext in args.extensions:
+        image_files.extend(input_dir.glob(f"*{ext}"))
+        image_files.extend(input_dir.glob(f"*{ext.upper()}"))
+    
+    if not image_files:
+        logger.warning(f"No image files found in {input_dir}")
+        return
+    
+    logger.info(f"Found {len(image_files)} images to process")
+    
+    # Create output directory
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load model
+    logger.info(f"Loading {args.model} model...")
+    gan = load_pretrained_nude_gan(
+        model_type=args.model,
+        device=args.device
+    )
+    
+    # Process each image
+    for i, image_file in enumerate(image_files, 1):
+        logger.info(f"Processing {i}/{len(image_files)}: {image_file.name}")
+        
+        try:
+            # Generate nude version
+            nude_image = gan.generate_nude(input_image=str(image_file))
+            
+            # Save result
+            output_file = output_dir / f"nude_{image_file.stem}.png"
+            nude_image.save(output_file)
+            
+            logger.info(f"Saved to {output_file}")
+            
+        except Exception as e:
+            logger.error(f"Failed to process {image_file}: {e}")
+            continue
+    
+    logger.info("Batch processing completed")
+
+
+def show_model_info(args):
+    """Show information about a model."""
+    logger.info(f"Loading {args.model} model...")
+    
+    gan = load_pretrained_nude_gan(
+        model_type=args.model,
+        device=args.device
+    )
+    
+    info = gan.get_model_info()
+    
+    print("\n" + "="*50)
+    print("MODEL INFORMATION")
+    print("="*50)
+    print(f"Model Type: {info['model_type']}")
+    print(f"Device: {info['device']}")
+    print(f"Parameters: {info['generator_params']:,}")
+    
+    if info['model_info']:
+        model_info = info['model_info']
+        print(f"Description: {model_info.get('description', 'N/A')}")
+        print(f"Input Size: {model_info.get('input_size', 'N/A')}")
+        print(f"Output Size: {model_info.get('output_size', 'N/A')}")
+    
+    print("="*50)
+
+
+def list_available_models():
+    """List all available pre-trained models."""
+    models = {
+        'dcgan_nude': {
+            'description': 'DCGAN trained on nude portraits (artistic style)',
+            'resolution': '128x128',
+            'style': 'Artistic/Classical paintings',
+            'speed': 'Fast',
+            'quality': 'Good'
+        },
+        'stylegan2_ffhq': {
+            'description': 'StyleGAN2 trained on FFHQ faces',
+            'resolution': '1024x1024',
+            'style': 'Photorealistic faces',
+            'speed': 'Medium',
+            'quality': 'Excellent'
+        },
+        'biggan_imagenet': {
+            'description': 'BigGAN trained on ImageNet',
+            'resolution': '256x256',
+            'style': 'Various objects/scenes',
+            'speed': 'Medium',
+            'quality': 'Very Good'
+        }
+    }
+    
+    print("\n" + "="*70)
+    print("AVAILABLE PRE-TRAINED MODELS")
+    print("="*70)
+    
+    for model_name, info in models.items():
+        print(f"\n{model_name.upper()}")
+        print("-" * len(model_name))
+        print(f"Description: {info['description']}")
+        print(f"Resolution:  {info['resolution']}")
+        print(f"Style:       {info['style']}")
+        print(f"Speed:       {info['speed']}")
+        print(f"Quality:     {info['quality']}")
+    
+    print("\n" + "="*70)
+    print("USAGE EXAMPLES:")
+    print("="*70)
+    print("# Use DCGAN for fast artistic nude generation:")
+    print("python -m nude_generator.cli generate input.jpg -o output.png --model dcgan_nude")
+    print("\n# Use StyleGAN2 for high-quality photorealistic results:")
+    print("python -m nude_generator.cli generate input.jpg -o output.png --model stylegan2_ffhq")
+    print("\n# Use BigGAN for diverse generation:")
+    print("python -m nude_generator.cli generate input.jpg -o output.png --model biggan_imagenet")
+    print("="*70)
+
+
+if __name__ == '__main__':
+    main()
 
